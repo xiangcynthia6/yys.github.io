@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>痒痒鼠任务追踪器</title>
+    <style>
+        :root {
+            --bg-color: #fdf5e6;
+            --border-color: #d2b48c;
+            --text-color: #5d2e1a;
+            --row-alt: #fffaf0;
+            --hover-color: #ffd700; /* 高亮改为更明显的金色 */
+            --header-bg: #f5deb3;
+            --name-bg: #faebd7;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #f4f1ea;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: var(--text-color);
+        }
+
+        h1 {
+            color: #a0522d;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+        }
+
+        .divider {
+            width: 100%;
+            max-width: 950px;
+            height: 2px;
+            background-color: var(--border-color);
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            width: 100%;
+            max-width: 950px;
+            text-align: left;
+            font-size: 20px;
+            font-weight: bold;
+            color: #8b4513;
+            margin: 20px 0 10px 0;
+            padding-left: 10px;
+            border-left: 5px solid #a0522d;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed; /* 固定布局使对齐更美观 */
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: center;
+            transition: background-color 0.15s;
+        }
+
+        th {
+            background-color: var(--header-bg);
+            font-weight: bold;
+        }
+
+        /* 任务名称列的基础样式 */
+        .task-name {
+            text-align: left;
+            padding-left: 15px;
+            font-weight: bold;
+            background-color: var(--name-bg);
+        }
+
+        /* 斑马纹逻辑 */
+        tr:nth-child(even) td {
+            background-color: var(--row-alt);
+        }
+        tr:nth-child(even) td.task-name {
+            background-color: #f5e4cc; /* 稍微深一点的斑马纹任务名背景 */
+        }
+
+        /* 核心修改：鼠标悬停时，强制整行所有单元格改变颜色 */
+        tbody tr:hover td {
+            background-color: var(--hover-color) !important;
+            color: #000; /* 悬停时文字稍微加深 */
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .controls {
+            margin-top: 30px;
+            margin-bottom: 50px;
+        }
+
+        button {
+            padding: 12px 40px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #cd5c5c;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        button:hover { background-color: #b22222; }
+
+        .status-msg {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #8b4513;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>痒痒鼠周任务追踪器</h1>
+    <div class="divider"></div>
+
+    <div class="section-title">每日任务</div>
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 25%;"></th>
+                    <th>周一</th><th>周二</th><th>周三</th><th>周四</th><th>周五</th><th>周六</th><th>周日</th>
+                </tr>
+            </thead>
+            <tbody id="dailyBody"></tbody>
+        </table>
+    </div>
+
+    <div class="section-title">每周任务</div>
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 75%;">周常</th>
+                    <th style="width: 25%;">完成情况</th>
+                </tr>
+            </thead>
+            <tbody id="weeklyBody"></tbody>
+        </table>
+    </div>
+
+    <div class="controls">
+        <button onclick="clearAll()">清空所有数据</button>
+    </div>
+    <div class="status-msg" id="statusMsg">所有进度已实时本地保存</div>
+
+    <script>
+        const dailyTasks = [
+            "签到", "商店50黑", "每日一抽", "宠物喂养","友情点", "吉闻祝福",
+            "悬赏1(6-18)", "悬赏2(18-6)", 
+           "地域鬼王3", "花合战", "逢魔4次+boss","结界突破", "寮三十",  "碎片",
+            "麒麟/阴门", "道馆/狭间",  "寄养1", "寄养2",
+            "寄养3", "式神委派1", "式神委派2","花车放置里程","源氏秘造挑战","残局得胜","拾光序礼三七九"        ];
+
+        const weeklyTasks = [
+            "周六退治", "周三奸商商店", "周六奸商商店", "宴会1", "宴会2", 
+            "寮抽奖3", "秘闻竞速/百战385勾", "秘闻分享20勾", "地鬼分享20勾", 
+            "真蛇2", "图鉴分享1票", "珍旅居千物宝库1票1碎", "寮功勋商店2票3碎", 
+            "斗技", "杂货铺特殊商店御灵40", "杂货铺勋章商店1票1蛋", 
+            "杂货铺荣誉商店2票2碎", "杂货铺魅力商店1票2碎", "秘卷屋紫蛇皮40", 
+            "秘卷屋海汐30", "协同对弈", "百鬼弈/百鬼棋局", "寄售券", 
+            "神龛1蛋", "契灵10", "契灵御魂", "魂海30", "六道2", "插画屋","彼世逢魔30"
+        ];
+
+        function init() {
+            const dBody = document.getElementById('dailyBody');
+            dailyTasks.forEach((task, r) => {
+                const tr = document.createElement('tr');
+                let tds = `<td class="task-name">${task}</td>`;
+                for (let c = 0; c < 7; c++) {
+                    tds += `<td><input type="checkbox" id="d-${r}-${c}" onchange="save()"></td>`;
+                }
+                tr.innerHTML = tds;
+                dBody.appendChild(tr);
+            });
+
+            const wBody = document.getElementById('weeklyBody');
+            weeklyTasks.forEach((task, r) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="task-name">${task}</td>
+                                <td><input type="checkbox" id="w-${r}" onchange="save()"></td>`;
+                wBody.appendChild(tr);
+            });
+            load();
+        }
+
+        function save() {
+            const data = {};
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => data[cb.id] = cb.checked);
+            localStorage.setItem('yys_final_tracker', JSON.stringify(data));
+            showStatus("进度已实时保存");
+        }
+
+        function load() {
+            const data = JSON.parse(localStorage.getItem('yys_final_tracker'));
+            if (data) {
+                for (const id in data) {
+                    const cb = document.getElementById(id);
+                    if (cb) cb.checked = data[id];
+                }
+            }
+        }
+
+        function clearAll() {
+            if (confirm("确定要清空全部进度吗？")) {
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                localStorage.removeItem('yys_final_tracker');
+                showStatus("已成功重置");
+            }
+        }
+
+        function showStatus(msg) {
+            const el = document.getElementById('statusMsg');
+            el.innerText = msg;
+            setTimeout(() => { el.innerText = "所有进度已实时本地保存"; }, 1500);
+        }
+
+        init();
+    </script>
+</body>
+</html>
