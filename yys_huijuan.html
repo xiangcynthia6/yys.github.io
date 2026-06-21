@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>阴阳师绘卷总分计算器</title>
+    <title>阴阳师绘卷总分计算器 (大容量跨端同步版)</title>
+    <!-- 引入官方高稳定性二维码库 -->
+    <script src="https://cdn.staticfile.org/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
-            --yys-blue: #4859f2; /* 模仿截图中的蓝色 */
+            --yys-blue: #4859f2; 
             --bg-color: #f5f7fa;
             --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
@@ -22,8 +24,75 @@
         h1 {
             color: #333;
             font-size: 24px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
+        
+        /* 新增：同步控制面板 */
+        .sync-panel {
+            background: #eef5fe;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1020px;
+            box-sizing: border-box;
+        }
+        .btn {
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn-success { background-color: #2ea44f; }
+        .btn-success:hover { background-color: #248a3d; }
+        .btn-info { background-color: #34495e; }
+        .btn-info:hover { background-color: #2c3e50; }
+        .btn-primary { background-color: #9b59b6; }
+        .btn-primary:hover { background-color: #8e44ad; }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 90%;
+            width: 340px;
+        }
+        #qrcode {
+            display: inline-block;
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .close-btn {
+            background-color: #e05d5d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
         .accounts-wrapper {
             display: flex;
             gap: 20px;
@@ -40,7 +109,6 @@
             width: 320px;
             box-sizing: border-box;
         }
-        /* 模仿截图中的名字样式 */
         .name-container {
             margin-bottom: 25px;
         }
@@ -50,7 +118,7 @@
             font-weight: 700;
             color: var(--yys-blue);
             border: none;
-            border-bottom: 1.5px solid #e0e0e0; /* 截图中的下划线 */
+            border-bottom: 1.5px solid #e0e0e0;
             padding-bottom: 8px;
             background: transparent;
             outline: none;
@@ -59,8 +127,6 @@
         .acc-name:focus {
             border-bottom-color: var(--yys-blue);
         }
-
-        /* 输入框样式调整 */
         .input-item {
             margin-bottom: 15px;
         }
@@ -86,8 +152,6 @@
             border-color: #d1d9e6;
             background: #fff;
         }
-
-        /* 结果显示区 */
         .result {
             margin-top: 25px;
             padding: 18px;
@@ -106,7 +170,7 @@
         .score-value {
             font-size: 28px;
             font-weight: 800;
-            color: #ff7e47; /* 橙色突出分数 */
+            color: #ff7e47;
         }
         .clear-btn {
             display: block;
@@ -133,9 +197,15 @@
 
     <h1>阴阳师绘卷总分计算器</h1>
 
+    <!-- 同步控制核心面板 -->
+    <div class="sync-panel">
+        <button class="btn btn-success" onclick="shareDataQR()">⚡ 生成高敏捷秒扫二维码</button>
+        <button class="btn btn-info" onclick="exportDataText()">📋 备份全套纯净短码</button>
+        <button class="btn btn-primary" onclick="importDataText()">📥 粘贴短码恢复数据</button>
+    </div>
+
     <div class="accounts-wrapper">
         <script>
-            // 定义输入项顺序：ID, 标签名, 分值
             const items = [
                 { id: 'small', label: '小绘卷 (10分)', val: 10 },
                 { id: 'medium', label: '中绘卷 (20分)', val: 20 },
@@ -151,12 +221,11 @@
                     </div>
                 `;
                 
-                // 按顺序生成输入框
                 items.forEach(item => {
                     html += `
                     <div class="input-item">
                         <label>${item.label}</label>
-                        <input type="number" id="${item.id}_${i}" placeholder="0" oninput="saveAndCalc(${i})">
+                        <input type="number" id="${item.id}_${i}" min="0" max="65535" placeholder="0" oninput="saveAndCalc(${i})">
                     </div>
                     `;
                 });
@@ -174,23 +243,109 @@
         </script>
     </div>
 
-    <script>
-        window.onload = function() {
-            for (let i = 0; i < 3; i++) {
-                const savedName = localStorage.getItem(`name_${i}`);
-                if (savedName) document.getElementById(`name_${i}`).value = savedName;
+    <!-- 二维码遮罩弹窗 -->
+    <div class="modal" id="qrModal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3>📱 跨端同步/扫码</h3>
+            <p style="font-size: 12px; color: #555; margin-bottom: 5px;">已排除冲突特殊字符，支持多端、微信内一秒识别：</p>
+            <div id="qrcode"></div>
+            <br>
+            <button class="close-btn" onclick="closeModal()">关闭窗口</button>
+        </div>
+    </div>
 
-                ['small', 'medium', 'large', 'base'].forEach(key => {
-                    document.getElementById(`${key}_${i}`).value = localStorage.getItem(`${key}_${i}`) || '';
+    <script>
+        const keys = ['small', 'medium', 'large', 'base'];
+
+        /* ==================== 🛠️ URL 安全双字节（65535）编解码引擎 ==================== */
+        function safeEncode(rawStr) {
+            let base64 = btoa(encodeURIComponent(rawStr));
+            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function safeDecode(safeStr) {
+            let base64 = safeStr.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) { base64 += '='; }
+            return decodeURIComponent(atob(base64));
+        }
+
+        // 打包 3 个账号的完整信息：使用 '#' 连接各个账号，数值固定 4 位十六进制对齐
+        function packAllAccounts() {
+            let accountSegments = [];
+            for (let i = 0; i < 3; i++) {
+                const name = document.getElementById(`name_${i}`).value || `账号 ${i+1}`;
+                let hexStream = "";
+                keys.forEach(key => {
+                    let val = parseInt(document.getElementById(`${key}_${i}`).value) || 0;
+                    if (val > 65535) val = 65535; if (val < 0) val = 0;
+                    hexStream += val.toString(16).padStart(4, '0'); // 4位对齐，支持至 65535
                 });
-                calc(i);
+                accountSegments.push(`${name}|${hexStream}`);
+            }
+            return accountSegments.join('#');
+        }
+
+        // 解包还原数据
+        function unpackAllAccounts(packedString) {
+            const accountSegments = packedString.split('#');
+            accountSegments.forEach((seg, i) => {
+                if (i >= 3) return; 
+                const parts = seg.split('|');
+                if (parts.length === 2) {
+                    const name = parts[0];
+                    const hexStream = parts[1];
+                    document.getElementById(`name_${i}`).value = name;
+                    localStorage.setItem(`name_${i}`, name);
+
+                    keys.forEach((key, kIdx) => {
+                        const subHex = hexStream.substr(kIdx * 4, 4);
+                        const val = subHex ? parseInt(subHex, 16) : 0;
+                        document.getElementById(`${key}_${i}`).value = val || '';
+                        localStorage.setItem(`${key}_${i}`, val || '');
+                    });
+                    calc(i);
+                }
+            });
+        }
+        /* ===================================================================== */
+
+        window.onload = function() {
+            // 优先解析 URL 传参同步数据
+            const urlParams = new URLSearchParams(window.location.search);
+            const compactParam = urlParams.get('c');
+
+            if (compactParam) {
+                try {
+                    const decodedStr = safeDecode(compactParam);
+                    unpackAllAccounts(decodedStr);
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    alert("🎉 绘卷数据跨端多号秒速同步成功！");
+                } catch(e) {
+                    alert("同步解析出错，可能密文不完整。");
+                }
+            } else {
+                // 读取本地缓存
+                for (let i = 0; i < 3; i++) {
+                    const savedName = localStorage.getItem(`name_${i}`);
+                    if (savedName) document.getElementById(`name_${i}`).value = savedName;
+
+                    keys.forEach(key => {
+                        document.getElementById(`${key}_${i}`).value = localStorage.getItem(`${key}_${i}`) || '';
+                    });
+                    calc(i);
+                }
             }
         };
 
         function saveAndCalc(i) {
             localStorage.setItem(`name_${i}`, document.getElementById(`name_${i}`).value);
-            ['small', 'medium', 'large', 'base'].forEach(key => {
-                localStorage.setItem(`${key}_${i}`, document.getElementById(`${key}_${i}`).value);
+            keys.forEach(key => {
+                let inputVal = document.getElementById(`${key}_${i}`).value;
+                if (parseInt(inputVal) > 65535) {
+                    inputVal = 65535;
+                    document.getElementById(`${key}_${i}`).value = 65535;
+                }
+                localStorage.setItem(`${key}_${i}`, inputVal);
             });
             calc(i);
         }
@@ -201,17 +356,56 @@
             const l = parseFloat(document.getElementById(`large_${i}`).value) || 0;
             const base = parseFloat(document.getElementById(`base_${i}`).value) || 0;
 
-            // 计算逻辑：小10，中20，大100 + 底分
             const total = (s * 10) + (m * 20) + (l * 100) + base;
             document.getElementById(`total_${i}`).innerText = total.toLocaleString();
         }
 
         function clearData(i) {
             if (confirm(`确定要清空“${document.getElementById(`name_${i}`).value}”的数据吗？`)) {
-                ['small', 'medium', 'large', 'base'].forEach(key => {
+                keys.forEach(key => {
                     document.getElementById(`${key}_${i}`).value = '';
                 });
                 saveAndCalc(i);
+            }
+        }
+
+        // 功能1：生成无视拦截的纯净 URL 二维码
+        function shareDataQR() {
+            const compactCode = safeEncode(packAllAccounts());
+            const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+            
+            document.getElementById("qrcode").innerHTML = "";
+            document.getElementById("qrModal").style.display = "flex";
+
+            new QRCode(document.getElementById("qrcode"), {
+                text: baseUrl + "?c=" + compactCode,
+                width: 200, height: 200,
+                colorDark : "#000000", colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M  // 使用 M 级别纠错，格子大，秒读取
+            });
+        }
+
+        function closeModal() { document.getElementById("qrModal").style.display = "none"; }
+
+        // 功能2：文本导出
+        function exportDataText() {
+            const ultraShortText = safeEncode(packAllAccounts());
+            const temp = document.createElement("textarea");
+            temp.value = ultraShortText; document.body.appendChild(temp);
+            temp.select(); document.execCommand("copy"); document.body.removeChild(temp);
+            alert("📋 【全本绘卷短码】已成功复制到剪贴板！可发至微信、文档等进行无损备份。");
+        }
+
+        // 功能3：文本导入
+        function importDataText() {
+            const code = prompt("请粘贴已备份的纯净绘卷短码：");
+            if (!code || code.trim() === "") return;
+            try {
+                const decodedStr = safeDecode(code.trim());
+                unpackAllAccounts(decodedStr);
+                alert("🎉 全套备份数据导入恢复成功！");
+            } catch(e) {
+                alert("导入失败，格式校验未通过，请检查代码是否完整。");
             }
         }
     </script>
